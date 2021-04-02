@@ -209,7 +209,7 @@ Resources:
     DeletionPolicy: Retain
     Properties:
         DBInstanceIdentifier: "{{STACK_NAME}}-PostgresInstance"
-        DBName: "universalWorkflow"
+        DBName: "{{STACK_NAME}}-PostgresInstance"
         AllocatedStorage: !Ref DBStorage
         DBInstanceClass: !Ref DBInstanceClass
         StorageType: !Ref DBStorageType
