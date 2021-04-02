@@ -14,4 +14,4 @@ These repo contains the cf templates for aws resources
 Run below command to add slack webhook in the parameter store with name slack_webhook_url
 
  Run below command to deploy everyything in the repo i.e postgres db and alarm. stage can be changed to any other value -if required
- >`make do-everything  stage-name=dev region=us-east-1 slack_webhook_url=https://hooks.slack.com/services/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`
+ >`make do-everything  stage-name=dev region=us-east-1 slack_webhook_url=<slack_webhook_url>`
