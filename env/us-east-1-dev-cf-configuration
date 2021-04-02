@@ -1,0 +1,7 @@
+[
+"PrivateSubnetMain=subnet-09dd5453c89bccdf9",
+"PrivateSubnetBackup=subnet-0d31af09882bc97d0",
+"DBSecurityGroups=sg-0591dcb69073406d8",
+"AlertNotificationEmailGroup=kamal.joshi@viacomcontractor.com",
+"SlackChannel=#uwf-aws-alarm-alerts"
+]

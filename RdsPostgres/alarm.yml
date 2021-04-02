@@ -1,0 +1,359 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create alarms for postgress rds db
+Parameters:
+  DBConnectionCount:
+    Type: Number
+    Description: Maximum number of connection allowed. LEAST({DBInstanceClassMemory/9531392},5000)
+    Default: 360 # LEAST({DBInstanceClassMemory/9531392},5000)
+  DBBaselineIops:
+    Type: Number
+    Description: >-
+      Maximum number of baseline IOPS to have optimal performance.
+    ConstraintDescription: >-
+      gp2 DBStorageType : It must be set to (3 * DBStorage) with maximum value as 16,000 IOPS
+      Provisioned IOPS: It must be set to DBIOPs
+    Default: 60
+  DBMemoryLimit:
+    Type: Number
+    Description: memory(in bytes) to trigger alarm
+    Default: 104857600 
+  DBSwapLimit:
+    Type: Number
+    Description: swap(in bytes) to trigger alarm
+    Default: 104857600 
+  AlertNotificationEmailGroup:
+    Type: String
+    Description: email that need to be subscribed to alarms
+  SlackChannel:
+    Type: String
+    Description: slack channel to which notification are sent
+Resources:
+  DBUsedStorageSpaceWarningAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Warning*** {{STACK_NAME}}-postgresinstance DB space usage% has reached 75%"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Namespace: RDS-Postgress
+      MetricName: {{STACK_NAME}}-usedSpacePercent
+      Statistic: Average
+      Period: 300
+      Threshold: 75
+      Unit: Percent
+      OKActions:
+        - Ref: AlarmNotification
+  DBUsedStorageSpaceCriticalAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Critical*** {{STACK_NAME}}-postgresinstance DB space usage% has reached 90%"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Namespace: RDS-Postgress
+      MetricName: {{STACK_NAME}}-usedSpacePercent
+      Statistic: Average
+      Period: 300
+      Threshold: 90
+      Unit: Percent
+      OKActions:
+        - Ref: AlarmNotification
+  DBHighCPUWarningAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Warning*** {{STACK_NAME}}-postgresinstance CPU usage% has reached 80%"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 2
+      EvaluationPeriods: 2
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      Threshold: 80
+      Unit: Percent
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: "{{STACK_NAME}}-postgresinstance"
+      OKActions:
+        - Ref: AlarmNotification
+  DBHighCPUCriticalAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Critical*** {{STACK_NAME}}-postgresinstance CPU usage% has reached 90%"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 2
+      EvaluationPeriods: 2
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: CPUUtilization
+      Statistic: Average
+      Period: 300
+      Threshold: 90
+      Unit: Percent 
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: "{{STACK_NAME}}-postgresinstance" 
+      OKActions:
+        - Ref: AlarmNotification
+  DBHighDatabaseConnectionsAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Warning*** {{STACK_NAME}}-postgresinstance connections has reached the configured limit"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: DatabaseConnections 
+      Statistic: Maximum
+      Unit: Count
+      Period: 300
+      Threshold: !Ref DBConnectionCount
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: "{{STACK_NAME}}-postgresinstance"
+      OKActions:
+        - Ref: AlarmNotification
+  DBLowMemoryAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Critical*** {{STACK_NAME}}-postgresinstance free memory has dropped below configured value"
+      ComparisonOperator: LessThanOrEqualToThreshold
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: FreeableMemory 
+      Statistic: Maximum
+      Period: 300
+      Threshold: !Ref DBMemoryLimit
+      Unit: Bytes
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: "{{STACK_NAME}}-postgresinstance"
+      OKActions:
+        - Ref: AlarmNotification
+  DBHighSwapAlert:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Critical*** {{STACK_NAME}}-postgresinstance swap usage has crossed configured value"
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Namespace: AWS/RDS
+      MetricName: FreeableMemory 
+      Statistic: Maximum
+      Period: 300
+      Threshold: !Ref DBSwapLimit
+      Unit: Bytes
+      Dimensions:
+        - Name: DBInstanceIdentifier
+          Value: "{{STACK_NAME}}-postgresinstance"
+      OKActions:
+        - Ref: AlarmNotification
+  DBHighIOPS:
+    Type: AWS::CloudWatch::Alarm
+    Properties: 
+      AlarmDescription: "***Warning*** {{STACK_NAME}}-postgresinstance I/O operations has reached the configured limit of DBBaselineIops."
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      DatapointsToAlarm: 1
+      EvaluationPeriods: 1
+      ActionsEnabled: true
+      AlarmActions: 
+        - Ref: AlarmNotification
+      TreatMissingData: notBreaching
+      Threshold: !Ref DBBaselineIops
+      Metrics:
+        - Id: totaliops
+          Expression: (readiops + writeiops)
+          Label: TotalIops
+        - Id: readiops
+          MetricStat:
+            Metric:
+              Namespace: AWS/RDS
+              MetricName: ReadIOPS
+              Dimensions:
+                - Name: DBInstanceIdentifier
+                  Value: {{STACK_NAME}}-postgresinstance
+            Period: 300
+            Stat: Average
+            Unit: Count/Second
+          ReturnData: false
+        - Id: writeiops
+          MetricStat:
+            Metric:
+              Namespace: AWS/RDS
+              MetricName: WriteIOPS
+              Dimensions:
+                - Name: DBInstanceIdentifier
+                  Value: {{STACK_NAME}}-postgresinstance
+            Period: 300
+            Stat: Average
+            Unit: Count/Second
+          ReturnData: false
+      OKActions:
+        - Ref: AlarmNotification
+  
+  AlarmNotification:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: {{STACK_NAME}}-AlarmNotification
+
+  AlarmEmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !Ref AlertNotificationEmailGroup
+      Protocol: email
+      TopicArn: !Ref AlarmNotification
+
+  AlarmSlackSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt 
+        - SlackNotifyFunction
+        - Arn
+      Protocol: lambda
+      TopicArn: !Ref AlarmNotification
+
+  DBFSMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    Properties: 
+      FilterPattern: '{$.instanceID = "{{STACK_NAME}}-postgresinstance" && $.fileSys[0].mountPoint = "/rdsdbdata"}'
+      LogGroupName: RDSOSMetrics
+      MetricTransformations: 
+        -   
+          DefaultValue: 0.0
+          MetricName: {{STACK_NAME}}-usedSpacePercent
+          MetricNamespace: RDS-Postgress
+          MetricValue: $.fileSys[0].usedPercent
+
+  SlackNotifyFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import urllib3
+          import boto3 
+          import json
+          import os 
+          ssm = boto3.client('ssm')
+          http = urllib3.PoolManager()
+          def handler(event, context):
+              print(event)
+              msg = json.loads(event['Records'][0]['Sns']['Message'])
+              alarm_name = msg['AlarmName']
+              new_state = msg['NewStateValue']
+              channel = os.environ['channel']
+              if msg['NewStateValue'] == 'ALARM':
+                  colors = 'danger'
+                  icon_emoji = ':bangbang: :x:'
+              elif msg['NewStateValue'] == 'OK':
+                  colors = 'good'
+                  icon_emoji = ':tada: :clap:'
+              else:
+                  colors = '#warning'
+                  icon_emoji = ':shrug:'
+              if 'Trigger' in msg:
+                  del msg['Trigger']
+              message=""
+              pretext = f'{icon_emoji}  *`{alarm_name}` state is now `{new_state}`.* \n'
+              for key in msg:
+                  message += key + '--->' + str(msg[key]) + '\n'
+              url = ssm.get_parameter(Name='slack_webhook_url', WithDecryption=True) ['Parameter']['Value']
+              msg = {
+                  "channel": channel ,
+                  "attachments": [
+                  {
+                  "pretext": pretext,
+                  "text": message,
+                  "color": colors,
+                  "mrkdwn_in": ["pretext"]
+                  }
+                  ]
+              }
+
+              encoded_msg = json.dumps(msg).encode('utf-8')
+              resp = http.request('POST',url, body=encoded_msg)
+              print({
+                  "message": message, 
+                  "status_code": resp.status, 
+                  "response": resp.data
+              })
+      Environment:
+        Variables:
+          channel: !Ref SlackChannel
+      Runtime: python3.8
+      Timeout: 30
+      Role: !GetAtt LambdaRole.Arn
+      Handler: index.handler
+  LambdaPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: CFNSlackNotifyFunctionPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - ssm:PutParameter
+              - ssm:GetParameter
+              - ssm:DeleteParameter
+              - ec2:ImportKeyPair
+              - ec2:DeleteKeyPair
+              - ec2:CreateKeyPair
+            Effect: Allow
+            Resource:
+              - '*'
+          - Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Effect: Allow
+            Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
+      Roles:
+        - !Ref 'LambdaRole'
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+  SlackNotifyFunctionInvokePermission: 
+    Type: AWS::Lambda::Permission
+    Properties: 
+      Action: lambda:InvokeFunction
+      Principal: sns.amazonaws.com
+      SourceArn:  !Ref AlarmNotification 
+      FunctionName: !Ref SlackNotifyFunction
+
+

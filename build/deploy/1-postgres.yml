@@ -1,0 +1,315 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create Postgrese Database with best practice
+Parameters:
+  PrivateSubnetMain:
+      Type: AWS::EC2::Subnet::Id
+      Description: main private subnet where db will live.
+  PrivateSubnetBackup:
+      Type: AWS::EC2::Subnet::Id
+      Description: backup private subnet where db will live.
+  DBSecurityGroups:
+      Type: AWS::EC2::SecurityGroup::Id
+      Description: db security group
+  DBIOPs:
+    Type: Number
+    Description: >-
+      The amount of Provisioned IOPS (input/output operations per second) to be
+      initially allocated for the DB instance
+    Default: 1000
+    ConstraintDescription: >-
+      Must be a multiple between 1 and 50 of the storage amount for the DB
+      instance. Must also be an integer multiple of 1000. For example, if the
+      size of your DB instance is 500 GiB, then your Iops value can be 2000,
+      3000, 4000, or 5000.
+  DBStorage:
+    Type: Number
+    Description: Database allocated storage (GB)
+    Default: 20
+    ConstraintDescription: >- 
+      If any value is set in the Iops parameter, DBStorage must be at least 100 GiB, which corresponds to the minimum Iops value of 1,000. 
+      If you increase the Iops value (in 1,000 IOPS increments), then you must also increase the AllocatedStorage value (in 100-GiB increments).
+      For General Purpose (SSD) storage (gp2): Must be an integer from 20 to 65536.
+          Provisioned IOPS storage (io1): Must be an integer from 100 to 65536.
+          Magnetic storage (standard): Must be an integer from 5 to 3072.
+  DBInstanceClass:
+    Type: String
+    Description: DB instance type allowed for your use case. For full list of available classes see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.DBInstanceClass.html
+    Default: db.t3.medium
+    AllowedValues:
+      - db.m4.16xlarge
+      - db.m4.10xlarge
+      - db.m4.4xlarge
+      - db.m4.2xlarge
+      - db.m4.xlarge
+      - db.m4.large
+      - db.m3.2xlarge
+      - db.m3.xlarge
+      - db.m3.large
+      - db.m3.medium
+      - db.m1.xlarge
+      - db.m1.large
+      - db.m1.medium
+      - db.m1.small
+      - db.r4.16xlarge
+      - db.r4.8xlarge
+      - db.r4.4xlarge
+      - db.r4.2xlarge
+      - db.r4.xlarge
+      - db.r4.large
+      - db.r3.8xlarge
+      - db.r3.4xlarge
+      - db.r3.2xlarge
+      - db.r3.xlarge
+      - db.r3.large
+      - db.m2.4xlarge
+      - db.m2.2xlarge
+      - db.m2.xlarge
+      - db.t2.2xlarge
+      - db.t2.xlarge
+      - db.t2.large
+      - db.t2.medium
+      - db.t2.small
+      - db.t2.micro
+      - db.t3.medium
+      - db.t3.large
+    ConstraintDescription: Must select a valid database instance type.
+  DBEngineVersion:
+    Type: String
+    Default: 12.5
+    Description: version of the db engine
+    AllowedValues:
+      - 10.1
+      - 10.3
+      - 10.4
+      - 10.5
+      - 10.6
+      - 10.7
+      - 10.9
+      - 10.10
+      - 10.11
+      - 10.12
+      - 10.13
+      - 10.14
+      - 10.15
+      - 11.1
+      - 11.2
+      - 11.4
+      - 11.5
+      - 11.6
+      - 11.7
+      - 11.8
+      - 11.9
+      - 11.10
+      - 12.2
+      - 12.3
+      - 12.4
+      - 12.5
+      - 13.1
+  DBStorageType:
+    Type: String
+    Description: >-
+      The database storage engine. For applications which require high read/write's, select 'io1'.
+      for full list of versions available see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html#PostgreSQL.Concepts.General.DBVersions
+    AllowedValues:
+      - standard
+      - gp2
+      - io1
+    Default: "gp2"
+  MultiAZ:
+    Type: String
+    Description: Create a multi-AZ RDS database instance
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either true or false.
+  MinorUpgrade:
+    Type: String
+    Description: Minor upgrade engines applied
+    Default: 'true'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either true or false.  
+  PerformanceInsights:
+    Type: String
+    Description: Enable performance insights or not
+    Default: 'false'
+    AllowedValues:
+      - 'true'
+      - 'false'
+    ConstraintDescription: Must be either true or false.
+  EnableEnhancedMonitoring:
+    Description: 'Provide metrics in real time for the operating system (OS) that your DB instance runs on.'
+    Type: String
+    AllowedValues: [true, false]
+    Default: true
+Conditions:
+  CreateProdResources: !Equals 
+    - "dev"
+    - "prod"
+  IsStorageTypeIOP: !Equals
+      - Ref: DBStorageType
+      - io1
+  HasEnhancedMonitoring: !Equals [ !Ref EnableEnhancedMonitoring, 'true' ]
+Resources:
+  PostgresKmsKey:
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Type: 'AWS::KMS::Key'
+    Properties:
+      Enabled: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Sid: Allow direct access to key metadata to the account 
+          Principal:
+            AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+          Action: 
+            - 'kms:*'
+          Resource: '*'
+        - Effect: Allow
+          Sid: Allow access through the rds service from the same account
+          Principal:
+            AWS: '*'
+          Action: 
+            - 'kms:Encrypt'
+            - 'kms:Decrypt'
+            - 'kms:GenerateDataKey*'
+            - 'kms:CreateGrant'
+            - 'kms:List*'
+            - 'kms:DescribeKey'
+          Resource: '*'
+          Condition: 
+            StringEquals:
+              kms:CallerAccount: !Ref 'AWS::AccountId'
+              kms:ViaService:
+                - 'rds.us-west-2.amazonaws.com'
+  PostgresKmsKeyAlias:
+    Type: 'AWS::KMS::Alias'
+    Properties:
+      AliasName: 'alias/devPostgresKmsKey'
+      TargetKeyId: !Ref PostgresKmsKey
+
+  PostgresDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+        DBSubnetGroupDescription: "dev-PostgresInstanceSubnetGroup"
+        DBSubnetGroupName: "dev-PostgresInstanceSubnetGroup"
+        SubnetIds:
+            - !Ref PrivateSubnetMain
+            - !Ref PrivateSubnetBackup
+        Tags:
+            - Key: Name
+              Value: "dev-PostgresInstanceSubnetGroup"
+  PostgresInstance:    
+    Type: AWS::RDS::DBInstance
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Properties:
+        DBInstanceIdentifier: "dev-PostgresInstance"
+        DBName: "universalWorkflow"
+        AllocatedStorage: !Ref DBStorage
+        DBInstanceClass: !Ref DBInstanceClass
+        StorageType: !Ref DBStorageType
+        Iops: !If
+        - IsStorageTypeIOP
+        - !Ref DBIOPs
+        - !Ref 'AWS::NoValue'
+        Engine: "postgres"
+        EngineVersion: !Ref DBEngineVersion
+        MultiAZ: !If [CreateProdResources, true, !Ref MultiAZ]
+        EnablePerformanceInsights: !If [CreateProdResources, true, !Ref PerformanceInsights]
+        EnableCloudwatchLogsExports : ["postgresql", "upgrade"]
+        MasterUsername: !Join 
+          - ''
+          - - '{{resolve:secretsmanager:'
+            - !Ref PostgressDBCred
+            - ':SecretString:username}}'
+        MasterUserPassword: !Join ['', ['{{resolve:secretsmanager:', !Ref PostgressDBCred, ':SecretString:password}}' ]]
+        PubliclyAccessible: false
+        Tags:
+          - Key: Name
+            Value: "dev-Postgres"
+        VPCSecurityGroups: 
+          - !Ref DBSecurityGroups
+        DBSubnetGroupName: !Ref PostgresDBSubnetGroup
+        DBParameterGroupName: !Ref PostgressPG
+        StorageEncrypted: true
+        KmsKeyId: !Ref PostgresKmsKey
+        AutoMinorVersionUpgrade: !Ref MinorUpgrade
+        DeletionProtection: true
+        MonitoringInterval: !If [HasEnhancedMonitoring, 60, 0]
+        MonitoringRoleArn: !If [HasEnhancedMonitoring, !GetAtt ['EnhancedMonitoringRole', 'Arn'], !Ref 'AWS::NoValue']
+
+  PostgressDBCred:
+    Type: 'AWS::SecretsManager::Secret'
+    Properties:
+      Name: "devPostgressDBCred"
+      Description: "This secret has a dynamically generated secret password for postgress DB"
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "root"}'
+        GenerateStringKey: "password"
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+      KmsKeyId:  !Ref PostgresKmsKey 
+      Tags:
+        -
+          Key: Name
+          Value: "devPostgressDBCred"
+
+  PostgressDBPasswordAtachment:  
+    Type: AWS::SecretsManager::SecretTargetAttachment
+    Properties: 
+      SecretId: !Ref PostgressDBCred
+      TargetId: !Ref PostgresInstance
+      TargetType: AWS::RDS::DBInstance
+
+  PostgressPG:
+    Type: AWS::RDS::DBParameterGroup
+    Properties: 
+      Description: ' postgres parameter group'
+      Family: postgres12
+      #These are the minimum parameters that should be enabled as best practices. Please tune them based on the use case
+      Parameters: 
+        log_connections: "1"
+        log_destination: csvlog
+        log_disconnections: "1"
+        log_min_duration_statement: "100"
+        log_lock_waits: "1"
+
+  EnhancedMonitoringRole:
+    Condition: HasEnhancedMonitoring
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Sid: 'EnhancedMonitoringRole'
+          Effect: Allow
+          Principal:
+            Service: monitoring.rds.amazonaws.com
+          Action: sts:AssumeRole
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole
+      Path: "/"     
+
+Outputs:
+  PostgresInstance:
+    Value: !Ref PostgresInstance
+    Export:
+      Name: !Join [':', [!Ref 'AWS::StackName', 'PostgresInstance']]
+  PostgresEndpointURL:
+    Value: !GetAtt 'PostgresInstance.Endpoint.Address'
+    Export:
+      Name: !Join [':', [!Ref 'AWS::StackName', 'PostgresEndpointURL']]
+  PostgresEndpointPort:
+    Value: !GetAtt 'PostgresInstance.Endpoint.Port'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PostgresEndpointPort' ] ]
+  PostgressDBCred:
+    Value: !Ref PostgressDBCred
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PostgressDBCred' ] ]
+
