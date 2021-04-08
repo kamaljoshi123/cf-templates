@@ -276,7 +276,8 @@ Resources:
         log_connections: "1"
         log_destination: csvlog
         log_disconnections: "1"
-        log_min_duration_statement: "100"
+        log_min_duration_statement: "3000"
+        auto_explain.log_min_duration: "3000"
         log_lock_waits: "1"
 
   EnhancedMonitoringRole:
