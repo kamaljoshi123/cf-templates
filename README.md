@@ -1,5 +1,11 @@
 # cf-templates
-These repo contains the cf templates for aws resources that can be hooked with CI/CD like jenkinsfile for automation.
+These repo contains the 
+> * cf templates for postgress db based on best practice
+> * Alarms for cpu,storage,iops,memory,swap,database connection
+> * Alerts for db configuration, availabilty or security related changes
+> * Code for integration with slack to send customized alerts
+> * Makefile to integrate with CI/CD
+
 
 * Add any env level configuration in the file - _**env/${REGION}-${STAGE_NAME}-cf-configuration**_
 > eg. These are mandatory parameters
