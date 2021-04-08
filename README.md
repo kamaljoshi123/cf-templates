@@ -31,7 +31,7 @@ These repo contains the
 ```sh 
 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: <>, accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         stage('Deploy CF Templates') {
-            def status = sh(returnStatus: true, script: "make do-everything  stage-name=dev region=us-east-1 slack_webhook_url=<slack_webhook_url>")
+            def status = sh(returnStatus: true, script: "make do-everything  stage-name=dev region=us-east-1")
             if (status != 0) {
                 throw new Exception("Deploy-cf-templates step is FAILED")
             }
