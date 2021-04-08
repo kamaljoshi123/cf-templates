@@ -218,6 +218,31 @@ Resources:
           ReturnData: false
       OKActions:
         - Ref: AlarmNotification
+  DatabaseInstanceEventSubscription:
+    Type: 'AWS::RDS::EventSubscription'
+    Properties:
+      EventCategories:
+      - availability
+      - configuration change
+      - deletion
+      - failover
+      - failure
+      - maintenance
+      - notification
+      - recovery
+      SnsTopicArn: !Ref AlarmNotification
+      SourceIds: 
+        - Fn::ImportValue: !Join [':', ['{{STACK_NAME}}-postgres', 'PostgresInstance']]
+      SourceType: 'db-instance'
+  DBParameterGroupEventSubscription:
+    Type: 'AWS::RDS::EventSubscription'
+    Properties:
+      EventCategories:
+      - configuration change
+      SnsTopicArn: !Ref AlarmNotification
+      SourceIds:  
+        - Fn::ImportValue: !Join [':', ['{{STACK_NAME}}-uwfl-postgres', 'UWFPostgressPG']]
+      SourceType: 'db-parameter-group'
   
   AlarmNotification:
     Type: AWS::SNS::Topic
