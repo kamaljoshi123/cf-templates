@@ -12,11 +12,9 @@ postgres_stack_name=$(STACK_NAME)-postgres
 alarm_stack_name=$(STACK_NAME)-alarm
 do-everything: | build-cf-templates deploy-cf-infrastructure
 
-delete-everything: | delete-cf-service delete-cf-infrastructure
+delete-everything: | delete-cf-infrastructure:
 
 deploy-cf-infrastructure:
-	@echo 'Adding webhook url in ssm'
-	@aws ssm put-parameter --name "slack_webhook_url" --type "SecureString" --value "${slack_webhook_url}" --overwrite
 	@echo 'deploy cf templates'
 	@aws cloudformation deploy --no-fail-on-empty-changeset --template-file build/deploy/1-postgres.yml \
 		 --stack-name $(postgres_stack_name) \
