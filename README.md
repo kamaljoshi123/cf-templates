@@ -1,4 +1,4 @@
-# cf-templates - https://github.com/kamaljoshi123/cf-templates.git
+# cf-templates - 
 These repo contains the 
 > * cf templates for postgress db based on best practice
 > * Alarms for cpu,storage,iops,memory,swap,database connection
